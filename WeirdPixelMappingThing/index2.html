@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texture Generator</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="textureUpload" accept="image/*"><br>
+    <canvas id="outputCanvas"></canvas>
+
+    <script>
+        const textureUpload = document.getElementById('textureUpload');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const ctx = outputCanvas.getContext('2d');
+
+        textureUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const textureImg = new Image();
+                textureImg.onload = function() {
+                    // Render the uploaded image to the canvas to extract its pixel data
+                    ctx.canvas.width = textureImg.width;
+                    ctx.canvas.height = textureImg.height;
+                    ctx.drawImage(textureImg, 0, 0);
+                    const textureData = ctx.getImageData(0, 0, textureImg.width, textureImg.height);
+                    
+                    // Load the reference image and begin processing
+                    loadReferenceImage(textureData);
+                };
+                textureImg.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function loadReferenceImage(textureData) {
+            const referenceImage = new Image();
+            referenceImage.onload = function() {
+                outputCanvas.width = referenceImage.width;
+                outputCanvas.height = referenceImage.height;
+                ctx.drawImage(referenceImage, 0, 0);
+                const refImageData = ctx.getImageData(0, 0, referenceImage.width, referenceImage.height);
+                const outputImageData = ctx.createImageData(referenceImage.width, referenceImage.height);
+
+                // Maximum coordinates for the mapping
+                const mapWidth = 4096;
+                const mapHeight = 4096;
+
+                // Process each pixel
+                for (let i = 0; i < refImageData.data.length; i += 4) {
+                    let r = refImageData.data[i]; // Red channel
+                    let g = refImageData.data[i + 1]; // Green channel
+                    let b = refImageData.data[i + 2]; // Blue channel
+
+                    const highBitsX = r >> 4; // Top 4 bits of red channel
+                    const highBitsY = r & 0x0F; // Lower 4 bits of red channel
+                    const lowBitsX = g; // Entire green channel
+                    const lowBitsY = b; // Entire blue channel
+
+                    const decodedY = (highBitsX << 8) | lowBitsX; // Combine high and low bits for x
+                    const decodedX = (highBitsY << 8) | lowBitsY; // Combine high and low bits for y
+                    
+                    // Normalize coordinates
+                    const normX = decodedX / mapWidth;
+                    const normY = decodedY / mapHeight;
+
+                    // Scale normalized coordinates to texture dimensions
+                    const textureX = Math.floor(normX * textureData.width);
+                    const textureY = Math.floor(normY * textureData.height);
+
+                    // Ensure texture coordinates are within the bounds
+                    if (textureX < textureData.width && textureY < textureData.height) {
+                        const index = (textureY * textureData.width + textureX) * 4;
+                        outputImageData.data[i] = textureData.data[index]; // Red
+                        outputImageData.data[i + 1] = textureData.data[index + 1]; // Green
+                        outputImageData.data[i + 2] = textureData.data[index + 2]; // Blue
+                        outputImageData.data[i + 3] = 255; // Alpha (fully opaque)
+                    } else {
+                        outputImageData.data[i + 3] = 0; // Set pixel to transparent if out of bounds
+                    }
+                }
+
+                // Draw the processed image
+                ctx.putImageData(outputImageData, 0, 0);
+            };
+            referenceImage.src = '/reference-image.png'; // Ensure the correct path
+            // referenceImage.src = '/map.png'; // Ensure the correct path
+        }
+    </script>
+</body>
+</html>

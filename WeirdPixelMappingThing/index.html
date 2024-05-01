@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rotating Cylinder with Dynamic Texture</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #uploadTexture { position: absolute; top: 20px; left: 20px; }
+    </style>
+</head>
+<body>
+<input type="file" id="uploadTexture" accept="image/*">
+<script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Default texture (optional, can be a placeholder or transparent)
+    const loader = new THREE.TextureLoader();
+    // const defaultTexture = loader.load('https://threejsfundamentals.org/threejs/resources/images/wall.jpg');
+    
+    // Load texture map.png from the same directory as the HTML file
+    const defaultTexture = loader.load('map.png'); 
+
+    // Cylinder geometry
+    const geometry = new THREE.CylinderGeometry(5, 5, 20, 32);
+    const material = new THREE.MeshBasicMaterial({ map: defaultTexture });
+    const cylinder = new THREE.Mesh(geometry, material);
+    scene.add(cylinder);
+
+    camera.position.z = 20;
+
+    // Listen for file input change
+    document.getElementById('uploadTexture').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file.type.startsWith('image/')) {
+            console.log('File is not an image.', file.type, file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const texture = new THREE.TextureLoader().load(e.target.result);
+            cylinder.material.map = texture;
+            cylinder.material.needsUpdate = true;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Animation function
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Rotation
+        cylinder.rotation.x += 0.01;
+        cylinder.rotation.y += 0.01;
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+</script>
+</body>
+</html>
